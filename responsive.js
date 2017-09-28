@@ -60,34 +60,36 @@
   // 一下代码是处理 rem，来自上篇文章。不同的是获取屏幕宽度使用的是
   // document.documentElement.getBoundingClientRect
 
-  function refreshRem (_designWidth, _rem2px) {
+  var d = window.document.createElement('div')
+  d.style.width = '1rem'
+  d.style.display = 'none'
+  docEl.firstElementChild.appendChild(d)
+  var defaultFontSize = parseFloat(window.getComputedStyle(d, null).getPropertyValue('width'))
+  d.remove()
+  function refreshRem (_designWidth, _rem2px, direction) {
     // 修改viewport后，对网页宽度的影响，会立刻反应到
     // document.documentElement.getBoundingClientRect().width
     // 而这个改变反应到 window.innerWidth ，需要等较长的时间
     // 相应的对高度的反应，
     // document.documentElement.getBoundingClientRect().height
     // 要稍微慢点，没有准确的数据，应该会受到机器的影响。
-    var width = direction == 'portrait' ? docEl.getBoundingClientRect().width : (window.innerHeight || window.screen.height)
-    var d = window.document.createElement('div')
-    d.style.width = '1rem'
-    d.style.display = 'none'
-    docEl.firstElementChild.appendChild(d)
-    var defaultFontSize = parseFloat(window.getComputedStyle(d, null).getPropertyValue('width'))
-    d.remove()
-    var portrait = '@media screen and (width: ' + width + 'px) {html{font-size:' + ((width / (_designWidth / _rem2px) / defaultFontSize) * 100) + '%;}}'
-    var dpStyleEl = doc.getElementById('dpAdapt')
-    if (!dpStyleEl) {
-      dpStyleEl = document.createElement('style')
-      dpStyleEl.id = 'dpAdapt'
-      dpStyleEl.innerHTML = portrait
-      docEl.firstElementChild.appendChild(dpStyleEl)
-    } else {
-      dpStyleEl.innerHTML = portrait
-    }
+    setTimeout(function () {
+      var width = direction === 'portrait' ? (window.innerWidth || window.screen.width) : (window.innerHeight || window.screen.height)
+      var portrait = '@media screen and (width: ' + width + 'px) {html{font-size:' + ((width / (_designWidth / _rem2px) / defaultFontSize) * 100) + '%;}}'
+      var dpStyleEl = doc.getElementById('dpAdapt')
+      if (!dpStyleEl) {
+        dpStyleEl = document.createElement('style')
+        dpStyleEl.id = 'dpAdapt'
+        dpStyleEl.innerHTML = portrait
+        docEl.firstElementChild.appendChild(dpStyleEl)
+      } else {
+        dpStyleEl.innerHTML = portrait
+      }
+    }, 300)
     // 由于 height 的响应速度比较慢，所以在加个延时处理横屏的情况。
     setTimeout(function () {
       // var height = docEl.getBoundingClientRect().height
-      var height = direction == 'portrait' ? (window.innerHeight || window.screen.height) : (window.innerWidth || window.screen.width)
+      var height = direction === 'portrait' ? (window.innerHeight || window.screen.height) : (window.innerWidth || window.screen.width)
       var landscape = '@media screen and (width: ' + height + 'px) {html{font-size:' + ((height / (_designWidth / _rem2px) / defaultFontSize) * 100) + '%;}}'
       var dlStyleEl = doc.getElementById('dlAdapt')
       if (!dlStyleEl) {
@@ -98,17 +100,8 @@
       } else {
         dlStyleEl.innerHTML = landscape
       }
-    }, 500)
+    }, 300)
   }
-
-  // 延时，让浏览器处理完viewport造成的影响，然后再计算root font-size。
-  /**
-  * 使用延时执行，event loop
-  */
-  setTimeout(function () {
-    refreshRem(designWidth, rem2px)
-  }, 0)
-
   // 转屏
   var supportOrientation = (typeof window.orientation === 'number' && typeof window.onorientationchange === 'object')
   var orientation
@@ -129,6 +122,14 @@
     }
   }
 
+  // 延时，让浏览器处理完viewport造成的影响，然后再计算root font-size。
+  /**
+  * 使用延时执行，event loop
+  */
+  setTimeout(function () {
+    refreshRem(designWidth, rem2px, direction)
+  }, 0)
+
   window.onorientationchange = function () {
     updateOrientation()
     refreshRem(designWidth, rem2px, direction)
@@ -138,15 +139,15 @@
    * 执行缩放的时候重新执行代码
    */
 
-  // win.addEventListener('resize', function () {
-  //   timer && clearTimeout(timer)
-  //   timer = setTimeout(refreshRem(designWidth, rem2px), 300)
-  // }, false)
+  win.addEventListener('resize', function () {
+    timer && clearTimeout(timer)
+    timer = setTimeout(refreshRem(designWidth, rem2px), 300)
+  }, false)
 
-  // win.addEventListener('pageshow', function (e) {
-  //   if (e.persisted) {
-  //     clearTimeout(timer)
-  //     timer = setTimeout(refreshRem(designWidth, rem2px), 300)
-  //   }
-  // }, false)
-})(designWidth, rem2px)
+  win.addEventListener('pageshow', function (e) {
+    if (e.persisted) {
+      clearTimeout(timer)
+      timer = setTimeout(refreshRem(designWidth, rem2px), 300)
+    }
+  }, false)
+})(750, 100)

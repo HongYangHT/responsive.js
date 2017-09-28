@@ -2,13 +2,165 @@
 <html>
 <head>
 	<title>test responsive</title>
+	<meta charset="utf-8">
 	<style type="text/css">
 		.m-container{
 			height: 1500px;
 			font-size: 1rem;
 		}
 	</style>
-	<script type="text/javascript" src="./responsive.js"></script>
+	<script>
+/**
+*
+* @description 该方法是用于移动端适配功能，
+*             结合淘宝的适配方案flexible + rem 实现适配，
+*             同时rem单位转化到100px，这样的话，对于开发H5
+*             页面时就只需要，移动两位小数点即可
+*
+* @param      {number} <designWidth> { 使用的标准设计稿宽度 }
+* @param      {number} <rem2px> { 将rem单位转化的值 } * * 参考文献： https://github.com/hbxeagle/rem/blob/master/README.md * https://github.com/amfe/lib-flexible
+*          https://github.com/hbxeagle/rem/blob/master/HD_ADAPTER.md
+*/
+(function (designWidth, rem2px) {
+  var win = window
+  var doc = win.document
+  var docEl = doc.documentElement
+  var metaEl = doc.querySelector('meta[name="viewport"]')
+  var dpr = 0
+  var scale = 0
+// var tid
+  var timer
+
+  if (!dpr && !scale) {
+    var devicePixelRatio = win.devicePixelRatio
+    if (win.navigator.appVersion.match(/iphone/gi)) {
+      if (devicePixelRatio >= 3 && (!dpr || dpr >= 3)) {
+        dpr = 3
+      } else if (devicePixelRatio >= 2 && (!dpr || dpr >= 2)) {
+        dpr = 2
+      } else {
+        dpr = 1
+      }
+    } else {
+      dpr = 1
+    }
+    scale = 1 / dpr
+  }
+
+  docEl.setAttribute('data-dpr', dpr)
+  if (!metaEl) {
+    metaEl = doc.createElement('meta')
+    metaEl.setAttribute('name', 'viewport')
+    metaEl.setAttribute('content', 'width=device-width,initial-scale=' + scale + ', maximum-scale=' + scale + ', minimum-scale=' + scale + ', user-scalable=no')
+
+    if (docEl.firstElementChild) {
+      docEl.firstElementChild.appendChild(metaEl)
+    } else {
+      var wrap = doc.createElement('div')
+      wrap.appendChild(metaEl)
+      doc.write(wrap.innerHTML)
+    }
+  } else {
+    metaEl.setAttribute('name', 'viewport')
+    metaEl.setAttribute('content', 'width=device-width,initial-scale=' + scale + ', maximum-scale=' + scale + ', minimum-scale=' + scale + ', user-scalable=no')
+  }
+// 以上代码是对 dpr 和 viewport 的处理，代码来自 lib-flexible。
+
+// 一下代码是处理 rem，来自上篇文章。不同的是获取屏幕宽度使用的是
+// document.documentElement.getBoundingClientRect
+
+  var d = window.document.createElement('div')
+  d.style.width = '1rem'
+  d.style.display = 'none'
+  docEl.firstElementChild.appendChild(d)
+  var defaultFontSize = parseFloat(window.getComputedStyle(d, null).getPropertyValue('width'))
+  d.remove()
+  function refreshRem (_designWidth, _rem2px, direction) {
+// 修改viewport后，对网页宽度的影响，会立刻反应到
+// document.documentElement.getBoundingClientRect().width
+// 而这个改变反应到 window.innerWidth ，需要等较长的时间
+// 相应的对高度的反应，
+// document.documentElement.getBoundingClientRect().height
+// 要稍微慢点，没有准确的数据，应该会受到机器的影响。
+    setTimeout(function () {
+      var width = direction === 'portrait' ? (window.innerWidth || window.screen.width) : (window.innerHeight || window.screen.height)
+      var portrait = '@media screen and (width: ' + width + 'px) {html{font-size:' + ((width / (_designWidth / _rem2px) / defaultFontSize) * 100) + '%;}}'
+      var dpStyleEl = doc.getElementById('dpAdapt')
+      if (!dpStyleEl) {
+        dpStyleEl = document.createElement('style')
+        dpStyleEl.id = 'dpAdapt'
+        dpStyleEl.innerHTML = portrait
+        docEl.firstElementChild.appendChild(dpStyleEl)
+      } else {
+        dpStyleEl.innerHTML = portrait
+      }
+    }, 300)
+	// 由于 height 的响应速度比较慢，所以在加个延时处理横屏的情况。
+    setTimeout(function () {
+	// var height = docEl.getBoundingClientRect().height
+      var height = direction === 'portrait' ? (window.innerHeight || window.screen.height) : (window.innerWidth || window.screen.width)
+      var landscape = '@media screen and (width: ' + height + 'px) {html{font-size:' + ((height / (_designWidth / _rem2px) / defaultFontSize) * 100) + '%;}}'
+      var dlStyleEl = doc.getElementById('dlAdapt')
+      if (!dlStyleEl) {
+        dlStyleEl = document.createElement('style')
+        dlStyleEl.id = 'dlAdapt'
+        dlStyleEl.innerHTML = landscape
+        docEl.firstElementChild.appendChild(dlStyleEl)
+      } else {
+        dlStyleEl.innerHTML = landscape
+      }
+    }, 300)
+  }
+  // 转屏
+  var supportOrientation = (typeof window.orientation === 'number' && typeof window.onorientationchange === 'object')
+  var orientation
+  var direction
+  function updateOrientation () {
+    if (supportOrientation) {
+      orientation = window.orientation
+      switch (orientation) {
+        case 90:
+        case -90:
+          direction = 'landscape'
+          break
+        default:
+          direction = 'portrait'
+      }
+    } else {
+      direction = (window.innerWidth > window.innerHeight) ? 'landscape' : 'portrait'
+    }
+  }
+
+// 延时，让浏览器处理完viewport造成的影响，然后再计算root font-size。
+/**
+* 使用延时执行，event loop
+*/
+  setTimeout(function () {
+    refreshRem(designWidth, rem2px, direction)
+  }, 0)
+
+  window.onorientationchange = function () {
+    updateOrientation()
+    refreshRem(designWidth, rem2px, direction)
+  }
+
+/*
+* 执行缩放的时候重新执行代码
+*/
+
+  win.addEventListener('resize', function () {
+    timer && clearTimeout(timer)
+    timer = setTimeout(refreshRem(designWidth, rem2px, direction), 300)
+  }, false)
+
+  win.addEventListener('pageshow', function (e) {
+    if (e.persisted) {
+      clearTimeout(timer)
+      timer = setTimeout(refreshRem(designWidth, rem2px, direction), 300)
+    }
+  }, false)
+})(750, 100)
+	</script>
 </head>
 <body>
 	<div class="m-container">
