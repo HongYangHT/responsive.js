@@ -83,6 +83,7 @@
 // document.documentElement.getBoundingClientRect().height
 // 要稍微慢点，没有准确的数据，应该会受到机器的影响。
     setTimeout(function () {
+	  // var width = direction === 'portrait' ? document.documentElement.getBoundingClientRect().width : (window.innerHeight || window.screen.height)
       var width = direction === 'portrait' ? (window.innerWidth || window.screen.width) : (window.innerHeight || window.screen.height)
       var portrait = '@media screen and (width: ' + width + 'px) {html{font-size:' + ((width / (_designWidth / _rem2px) / defaultFontSize) * 100) + '%;}}'
       var dpStyleEl = doc.getElementById('dpAdapt')
